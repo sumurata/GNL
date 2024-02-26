@@ -6,7 +6,7 @@
 /*   By: sumurata <sumurata@student.42tokyo.jp>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/02/19 16:21:33 by sumurata          #+#    #+#             */
-/*   Updated: 2024/02/19 17:49:40 by sumurata         ###   ########.fr       */
+/*   Updated: 2024/02/26 17:43:52 by sumurata         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,21 +15,41 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#define BUFFER_SIZE 1
+#define BUFFER_SIZE 10
 
-char	*ft_strchr(const char *str, int c)
+__attribute__((destructor)) static void destructor()
 {
-	unsigned char	uc;
+	system("leaks -q a.out");
+}
 
-	uc = (unsigned char)c;
-	while (1)
+size_t	ft_strlen(const char *str)
+{
+	size_t	len;
+
+	len = 0;
+	while (str[len] != '\0')
 	{
-		if (*str == uc)
-			return ((char *)str);
-		if (*str == '\0')
-			return (NULL);
-		str++;
+		len++;
 	}
+	return (len);
+}
+
+char	*ft_strchr(char *str, int c)
+{
+	int	i;
+
+	i = 0;
+	if (!str)
+		return (0);
+	if (c == '\0')
+		return ((char *)&str[ft_strlen(str)]);
+	while (str[i] != '\0')
+	{
+		if (str[i] == (char)c)
+			return ((char *)&str[i]);
+		i++;
+	}
+	return (0);
 }
 
 void	*ft_memcpy(void *buf1, const void *buf2, size_t n)
@@ -51,65 +71,29 @@ void	*ft_memcpy(void *buf1, const void *buf2, size_t n)
 	return (buf1);
 }
 
-char	*ft_strjoin(char const *s1, char const *s2)
+char	*ft_joinnext(char *s1, char *s2)
 {
 	size_t	len1;
 	size_t	len2;
 	char	*result;
 
-	len1 = 0;
-	len2 = 0;
-	if (s1 == NULL || s2 == NULL)
-		return (NULL);
-	while (s1[len1] != '\0')
-		len1++;
-	while (s2[len2] != '\0')
-		len2++;
+	if (!s1)
+	{
+		s1 = (char *)malloc(1 * sizeof(char));
+		if (!s1)
+			return (NULL);
+		s1[0] = '\0';
+	}
+	len1 = ft_strlen(s1);
+	len2 = ft_strlen(s2);
 	result = (char *)malloc(len1 + len2 + 1);
 	if (result == NULL)
 		return (NULL);
 	ft_memcpy(result, (char *)s1, len1);
 	ft_memcpy(result + len1, (char *)s2, len2 + 1);
+	if (s1)
+		free(s1);
 	return (result);
-}
-
-void	*ft_memset(void *buf, int value, size_t len)
-{
-	unsigned char	*b;
-	size_t			i;
-
-	b = buf;
-	i = 0;
-	while (i < len)
-	{
-		b[i] = (unsigned char)value;
-		i++;
-	}
-	return (buf);
-}
-
-void	*ft_calloc(size_t count, size_t size)
-{
-	size_t	totalsize;
-	void	*ptr;
-
-	totalsize = 0;
-	if (count == 0 || size == 0)
-	{
-		count = 1;
-		size = 1;
-	}
-	if (size < (SIZE_MAX / count))
-	{
-		totalsize = count * size;
-		ptr = malloc(totalsize);
-		if (ptr == NULL)
-			return (NULL);
-		ft_memset(ptr, 0, totalsize);
-	}
-	else
-		return (NULL);
-	return (ptr);
 }
 
 char	*ft_readline(int fd, char *next)
@@ -117,8 +101,10 @@ char	*ft_readline(int fd, char *next)
 	char	*tmp;
 	int		re;
 
+	tmp = malloc((BUFFER_SIZE + 1) * sizeof(char));
+	if (!tmp)
+		return (NULL);
 	re = 1;
-	tmp = ft_calloc(BUFFER_SIZE + 1, sizeof(char));
 	while (!ft_strchr(next, '\n') && re != 0)
 	{
 		re = read(fd, tmp, BUFFER_SIZE);
@@ -127,7 +113,8 @@ char	*ft_readline(int fd, char *next)
 			free(tmp);
 			return (NULL);
 		}
-		next = ft_strjoin(next, tmp);
+		tmp[re] = '\0';
+		next = ft_joinnext(next, tmp);
 	}
 	free(tmp);
 	return (next);
@@ -143,7 +130,9 @@ char	*ft_getline(char *next)
 		return (NULL);
 	while (next[i] != '\0' && next[i] != '\n')
 		i++;
-	ret = ft_calloc(i + 2, sizeof(char *));
+	ret = (char *)malloc((i + 2) * sizeof(char));
+	if (!ret)
+		return (NULL);
 	i = 0;
 	while (next[i] != '\0' && next[i] != '\n')
 	{
@@ -159,27 +148,62 @@ char	*ft_getline(char *next)
 	return (ret);
 }
 
+char	*ft_changenext(char *next)
+{
+	int		len;
+	int		i;
+	int		c;
+	char	*str;
+
+	i = 0;
+	c = 0;
+	len = 0;
+	while (next[i] != '\0' && next[i] != '\n')
+		i++;
+	if (!next[i])
+	{
+		free(next);
+		return (NULL);
+	}
+	str = (char *)malloc((ft_strlen(next) - i + 1) * sizeof(char));
+	if (!str)
+		return (NULL);
+	i += 1;
+	while (next[i])
+		str[c++] = next[i++];
+	str[c] = '\0';
+	free(next);
+	return (str);
+}
+
+char	*get_next_line(int fd)
+{
+	char		*line;
+	static char	*next = NULL;
+
+	if (fd < 0 || BUFFER_SIZE <= 0)
+		return (0);
+	next = ft_readline(fd, next);
+	//printf("%s\n",next);
+	if (!next)
+		return (NULL);
+	line = ft_getline(next);
+	next = ft_changenext(next);
+	return (line);
+}
+
 int	main(void)
 {
-	int			fd;
-	static char	*next;
-	char		*line;
+	int		fd;
+	char	*line;
 
-	next = "\0";
+	line = "";
 	fd = open("test.txt", O_RDONLY);
-	if (fd == -1)
+	while (line)
 	{
-		printf("open");
-		return (1);
-	}
-	line = ft_readline(fd, next);
-	printf("%s\n", line);
-	free(line);
-	line = ft_readline(fd, next);
-	if (close(fd) == -1)
-	{
-		perror("close");
-		return (1);
+		line = get_next_line(fd);
+		printf("> %s", line);
+		free(line);
 	}
 	return (0);
 }

@@ -6,7 +6,7 @@
 /*   By: sumurata <sumurata@student.42tokyo.jp>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2023/12/18 22:00:30 by sumurata          #+#    #+#             */
-/*   Updated: 2024/02/19 17:48:32 by sumurata         ###   ########.fr       */
+/*   Updated: 2024/02/26 14:30:07 by sumurata         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -33,7 +33,9 @@ char	*ft_readline(int fd, char *next)
 	int		re;
 
 	re = 1;
-	tmp = ft_calloc(BUFFER_SIZE + 1, sizeof(char));
+	tmp = malloc((BUFFER_SIZE + 1) * sizeof(char));
+	if (!tmp)
+		return (NULL);
 	while (!ft_strchr(next, '\n') && re != 0)
 	{
 		re = read(fd, tmp, BUFFER_SIZE);
@@ -58,7 +60,9 @@ char	*ft_getline(char *next)
 		return (NULL);
 	while (next[i] != '\0' && next[i] != '\n')
 		i++;
-	ret = ft_calloc(i + 2, sizeof(char *));
+	ret = (char *)malloc((i + 2) * sizeof(char));
+	if (!ret)
+		return (NULL);
 	i = 0;
 	while (next[i] != '\0' && next[i] != '\n')
 	{
@@ -91,9 +95,9 @@ char	*ft_changenext(char *next)
 		free(next);
 		return (NULL);
 	}
-	while (next[len] != '\0')
-		len++;
-	str = ft_calloc(len - i + 1, sizeof(char *));
+	str = (char *)malloc((ft_strlen(next) - i + 1) * sizeof(char));
+	if (!str)
+		return (NULL);
 	i += 1;
 	while (next[i])
 		str[c++] = next[i++];
